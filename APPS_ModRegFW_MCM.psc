@@ -113,7 +113,7 @@ Event OnOptionMenuAccept(Int aiOpenedMenu, Int aiSelectedOption)
 	
 	While(i < StorageUtil.IntListCount(None, SUKEY_MENU_OPTIONS))
 		If(aiOpenedMenu == StorageUtil.IntListGet(None, SUKEY_MENU_OPTIONS, i))
-			ChangeModPriority(StorageUtil.StringListGet(None, SUKEY_MENU_OPTIONS, i), aiSelectedOption)
+			ChangeInitOrder(StorageUtil.StringListGet(None, SUKEY_MENU_OPTIONS, i), aiSelectedOption)
 			i = StorageUtil.IntListCount(None, SUKEY_MENU_OPTIONS)
 		Else
 			i += 1
@@ -123,60 +123,87 @@ Event OnOptionMenuAccept(Int aiOpenedMenu, Int aiSelectedOption)
 	ForcePageReset()
 EndEvent
 
-Function ChangeModPriority(String asModName, Int aiPositionChange)
-	Int ModIndex = StorageUtil.StringListFind(None, SUKEY_REGISTERED_MODS, asModName)	
-	Form QuestToken = StorageUtil.FormListGet(None, SUKEY_REGISTERED_MODS, ModIndex)
+;/	|-----------------------------------------------------------------------------------|
+	|INTERNAL FUNCTION, NOT PART OF API. DO NOT USE ON ITS OWN.							|
+	|Changes the order in which the mods will be initialized.							|
+	|-----------------------------------------------------------------------------------|
+	|Parameter: asModName																|
+	|The name of the mod that we want to change its initialization order.				|
+	|-----------------------------------------------------------------------------------|
+	|Parameter: aiPositionChange														|
+	|The type of position change we want to achieve. This is contained in Ordering[].	|
+	|-----------------------------------------------------------------------------------|
+/;
+Function ChangeInitOrder(String asModName, Int aiPositionChange)
+	Int ModIndex = StorageUtil.StringListFind(None, SUKEY_INSTALL_MODS, asModName)
+	Form InitQuest = StorageUtil.FormListGet(None, SUKEY_INSTALL_MODS, ModIndex)
+	Int iSetStage = StorageUtil.IntListGet(None, SUKEY_INSTALL_MODS, ModIndex)
 
-	ShowMessage("Index: " + ModIndex + "\nQuest: " + (QuestToken As Quest).GetName(), False)
+	ShowMessage("Index: " + ModIndex + "\nQuest: " + (InitQuest As Quest).GetName(), False)
 
 	If(aiPositionChange == MOVE_TOP)
-		If(ModIndex == (StorageUtil.StringListCount(None, SUKEY_REGISTERED_MODS) - 1))
+		If(ModIndex == (StorageUtil.StringListCount(None, SUKEY_INSTALLED_MODS) - 1))
 			Return
 		EndIf
 
-		StorageUtil.FormListRemove(None, SUKEY_REGISTERED_MODS, QuestToken)
-		StorageUtil.FormListAdd(None, SUKEY_REGISTERED_MODS, QuestToken)
+		StorageUtil.FormListRemove(None, SUKEY_INSTALLED_MODS, InitQuest)
+		StorageUtil.FormListAdd(None, SUKEY_INSTALLED_MODS, InitQuest)
 		
-		StorageUtil.StringListRemove(None, SUKEY_REGISTERED_MODS, asModName)
-		StorageUtil.StringListAdd(None, SUKEY_REGISTERED_MODS, asModName)
+		StorageUtil.StringListRemove(None, SUKEY_INSTALLED_MODS, asModName)
+		StorageUtil.StringListAdd(None, SUKEY_INSTALLED_MODS, asModName)
+		
+		StorageUtil.IntListRemove(None, SUKEY_INSTALLED_MODS, iSetStage)
+		StorageUtil.IntListAdd(None, SUKEY_INSTALLED_MODS, iSetStage)
 	ElseIf(aiPositionChange == MOVE_UP)
-		If(ModIndex == (StorageUtil.StringListCount(None, SUKEY_REGISTERED_MODS) - 1))
+		If(ModIndex == (StorageUtil.StringListCount(None, SUKEY_INSTALLED_MODS) - 1))
 			Return
 		EndIf
 		
-		If(ModIndex == (StorageUtil.StringListCount(None, SUKEY_REGISTERED_MODS) - 2)) ;this is equivalent to MOVE_TOP
+		If(ModIndex == (StorageUtil.StringListCount(None, SUKEY_INSTALLED_MODS) - 2)) ;this is equivalent to MOVE_TOP, errors otherwise
 		
-			StorageUtil.FormListRemove(None, SUKEY_REGISTERED_MODS, QuestToken)
-			StorageUtil.FormListAdd(None, SUKEY_REGISTERED_MODS, QuestToken)
+			StorageUtil.FormListRemove(None, SUKEY_INSTALLED_MODS, InitQuest)
+			StorageUtil.FormListAdd(None, SUKEY_INSTALLED_MODS, InitQuest)
 			
-			StorageUtil.StringListRemove(None, SUKEY_REGISTERED_MODS, asModName)
-			StorageUtil.StringListAdd(None, SUKEY_REGISTERED_MODS, asModName)			
+			StorageUtil.StringListRemove(None, SUKEY_INSTALLED_MODS, asModName)
+			StorageUtil.StringListAdd(None, SUKEY_INSTALLED_MODS, asModName)
+
+			StorageUtil.IntListRemove(None, SUKEY_INSTALLED_MODS, iSetStage)
+			StorageUtil.IntListAdd(None, SUKEY_INSTALLED_MODS, iSetStage)
 		Else
-			StorageUtil.FormListRemove(None, SUKEY_REGISTERED_MODS, QuestToken)
-			StorageUtil.FormListInsert(None, SUKEY_REGISTERED_MODS, (ModIndex + 1), QuestToken)
+			StorageUtil.FormListRemove(None, SUKEY_INSTALLED_MODS, InitQuest)
+			StorageUtil.FormListInsert(None, SUKEY_INSTALLED_MODS, (ModIndex + 1), InitQuest)
 			
-			StorageUtil.StringListRemove(None, SUKEY_REGISTERED_MODS, asModName)
-			StorageUtil.StringListInsert(None, SUKEY_REGISTERED_MODS, (ModIndex + 1), asModName)
+			StorageUtil.StringListRemove(None, SUKEY_INSTALLED_MODS, asModName)
+			StorageUtil.StringListInsert(None, SUKEY_INSTALLED_MODS, (ModIndex + 1), asModName)
+			
+			StorageUtil.IntListRemove(None, SUKEY_INSTALLED_MODS, iSetStage)
+			StorageUtil.IntListAdd(None, SUKEY_INSTALLED_MODS, (ModIndex +1), iSetStage)
 		EndIf
 	ElseIf(aiPositionChange == MOVE_DOWN)
 		If(ModIndex == 0)
 			Return
 		EndIf
 		
-		StorageUtil.FormListRemove(None, SUKEY_REGISTERED_MODS, QuestToken)
-		StorageUtil.FormListInsert(None, SUKEY_REGISTERED_MODS, (ModIndex - 1), QuestToken)
+		StorageUtil.FormListRemove(None, SUKEY_INSTALLED_MODS, InitQuest)
+		StorageUtil.FormListInsert(None, SUKEY_INSTALLED_MODS, (ModIndex - 1), InitQuest)
 		
-		StorageUtil.StringListRemove(None, SUKEY_REGISTERED_MODS, asModName)
-		StorageUtil.StringListInsert(None, SUKEY_REGISTERED_MODS, (ModIndex - 1), asModName)
+		StorageUtil.StringListRemove(None, SUKEY_INSTALLED_MODS, asModName)
+		StorageUtil.StringListInsert(None, SUKEY_INSTALLED_MODS, (ModIndex - 1), asModName)
+		
+		StorageUtil.IntListRemove(None, SUKEY_INSTALLED_MODS, iSetStage)
+		StorageUtil.IntListAdd(None, SUKEY_INSTALLED_MODS, (ModIndex -1), iSetStage)
 	ElseIf(aiPositionChange == MOVE_BOTTOM)
 		If(ModIndex == 0)
 			Return
 		EndIf
 		
-		StorageUtil.FormListRemove(None, SUKEY_REGISTERED_MODS, QuestToken)
-		StorageUtil.FormListInsert(None, SUKEY_REGISTERED_MODS, 0, QuestToken)
+		StorageUtil.FormListRemove(None, SUKEY_INSTALLED_MODS, InitQuest)
+		StorageUtil.FormListInsert(None, SUKEY_INSTALLED_MODS, 0, InitQuest)
 		
-		StorageUtil.StringListRemove(None, SUKEY_REGISTERED_MODS, asModName)
-		StorageUtil.StringListInsert(None, SUKEY_REGISTERED_MODS, 0, asModName)
+		StorageUtil.StringListRemove(None, SUKEY_INSTALLED_MODS, asModName)
+		StorageUtil.StringListInsert(None, SUKEY_INSTALLED_MODS, 0, asModName)
+		
+		StorageUtil.IntListRemove(None, SUKEY_INSTALLED_MODS, iSetStage)
+		StorageUtil.IntListAdd(None, SUKEY_INSTALLED_MODS, 0, iSetStage)
 	EndIf
 EndFunction
