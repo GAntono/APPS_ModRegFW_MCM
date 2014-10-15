@@ -46,16 +46,17 @@ Event OnPageReset(String asPage)
 		AddMenuOptionST("LogRedirectMenu", "$LOG_REDIRECT_MENU", "Nothing")
 	ElseIf(asPage == Pages[1])
 		SetCursorFillMode(TOP_TO_BOTTOM)
-		AddHeaderOption("Registered mods")
+		AddToggleOptionST("StartInitialization", "$START_INITIALIZATION", false)
+		AddEmptyOption()
+		AddHeaderOption("$INITIALIZATION_ORDER")
 		AddEmptyOption()
 		
 		Int InstalledMods = StorageUtil.FormListCount(None, SUKEY_INSTALL_MODS)
 		Int i = InstalledMods
 		
-		;SUKEY_REGISTERED_MODS: [3, 2, 1]
 		While(i > 0)
-			StorageUtil.IntListAdd(None, SUKEY_MENU_OPTIONS, AddMenuOption(StorageUtil.StringListGet(None, SUKEY_INSTALL_MODS, i - 1), "#" + (InstalledMods + 1 - i) As String + ": ")) ;IntSUKEY_MENU_OPTIONS: [1, 2, 3]
-			StorageUtil.StringListAdd(None, SUKEY_MENU_OPTIONS, StorageUtil.StringListGet(None, SUKEY_INSTALL_MODS, i - 1)) ;StringSUKEY_MENU_OPTIONS: [1, 2, 3]
+			StorageUtil.IntListAdd(None, SUKEY_MENU_OPTIONS, AddMenuOption(StorageUtil.StringListGet(None, SUKEY_INSTALL_MODS, i - 1), "#" + (InstalledMods + 1 - i) As String + ": "))
+			StorageUtil.StringListAdd(None, SUKEY_MENU_OPTIONS, StorageUtil.StringListGet(None, SUKEY_INSTALL_MODS, i - 1))
 			i -= 1
 		EndWhile
 	EndIf
@@ -92,6 +93,16 @@ State DisplayErrorMessage
 		SetToggleOptionValueST(Core.DisplayError)
 	EndEvent
 EndState
+
+State StartInitialization
+	Event OnHighlightST()
+		SetInfoText("$EXPLAIN_START_INITIALIZATION")
+	EndEvent
+	
+	Event OnSelectST()
+		;start initialization of mods
+		;disable this option until init finished
+		;enable this option
 
 Event OnOptionMenuOpen(Int aiOption)
 	Int i
@@ -139,7 +150,7 @@ Function ChangeInitOrder(String asModName, Int aiPositionChange)
 	Form InitQuest = StorageUtil.FormListGet(None, SUKEY_INSTALL_MODS, ModIndex)
 	Int iSetStage = StorageUtil.IntListGet(None, SUKEY_INSTALL_MODS, ModIndex)
 
-	ShowMessage("Index: " + ModIndex + "\nQuest: " + (InitQuest As Quest).GetName(), False)
+	;ShowMessage("Index: " + ModIndex + "\nQuest: " + (InitQuest As Quest).GetName(), False)
 
 	If(aiPositionChange == MOVE_TOP)
 		If(ModIndex == (StorageUtil.StringListCount(None, SUKEY_INSTALLED_MODS) - 1))
@@ -207,3 +218,14 @@ Function ChangeInitOrder(String asModName, Int aiPositionChange)
 		StorageUtil.IntListAdd(None, SUKEY_INSTALLED_MODS, 0, iSetStage)
 	EndIf
 EndFunction
+
+Function InitializeMod(String asModName)
+	Int ModIndex = StorageUtil.StringListFind(None, SUKEY_INSTALL_MODS, asModName)
+	Form InitQuest = StorageUtil.FormListGet(None, SUKEY_INSTALL_MODS, ModIndex)
+	Int iSetStage = StorageUtil.IntListGet(None, SUKEY_INSTALL_MODS, ModIndex)
+	
+	If (InitQuest.SetStage(iSetStage) == false)
+		ExceptionMessage(asModName + "$MOD_FAILED_TO_INITIALIZE")
+		Return
+	Else
+		
