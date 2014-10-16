@@ -10,6 +10,8 @@ Int Property MOVE_TOP = 0 AutoReadOnly Hidden
 Int Property MOVE_UP = 1 AutoReadOnly Hidden
 Int Property MOVE_DOWN = 2 AutoReadOnly Hidden
 Int Property MOVE_BOTTOM = 3 AutoReadOnly Hidden
+Int Property INITIALIZE_MOD = 5 AutoReadOnly Hidden
+Float Property TimeToNextInit Auto
 
 
 Event OnConfigInit()
@@ -19,9 +21,11 @@ Event OnConfigInit()
 	Ordering = New String[5]
 	Ordering[0] = "$MOVE_TOP"
 	Ordering[1] = "$MOVE_UP"
-	Ordering[2] = "$MOVE_DOWN"
-	Ordering[3] = "$MOVE_BOTTOM"
-	Ordering[4] = "$CHANGE_NOTHING"
+	Ordering[2] = "$CHANGE_NOTHING"
+	Ordering[3] = "$MOVE_DOWN"
+	Ordering[4] = "$MOVE_BOTTOM"
+	Ordering[5] = ""
+	Ordering[6] = "$INITIALIZE_MOD"
 	LogLevel = New String[4]
 	LogLevel[0] = "$EVERYTHING"
 	LogLevel[1] = "$WARNINGS_AND_ERRORS"
@@ -46,7 +50,8 @@ Event OnPageReset(String asPage)
 		AddMenuOptionST("LogRedirectMenu", "$LOG_REDIRECT_MENU", "Nothing")
 	ElseIf(asPage == Pages[1])
 		SetCursorFillMode(TOP_TO_BOTTOM)
-		AddToggleOptionST("StartInitialization", "$START_INITIALIZATION", false)
+		AddSliderOptionST("WaitingTimeBetweenInits", $WAITING_TIME_BETWEEN_INITS, 1.0, "{1} seconds")
+		AddTextOptionST("StartInitialization", "$START_INITIALIZATION_SEQUENCE", "$GO")
 		AddEmptyOption()
 		AddHeaderOption("$INITIALIZATION_ORDER")
 		AddEmptyOption()
@@ -109,8 +114,8 @@ Event OnOptionMenuOpen(Int aiOption)
 
 	While(i < StorageUtil.IntListCount(None, SUKEY_MENU_OPTIONS))
 		If(StorageUtil.IntListGet(None, SUKEY_MENU_OPTIONS, i) == aiOption)
-			SetMenuDialogDefaultIndex(4)
-			SetMenuDialogStartIndex(0)
+			SetMenuDialogDefaultIndex(2)
+			SetMenuDialogStartIndex(2)
 			SetMenuDialogOptions(Ordering)
 			i = StorageUtil.IntListCount(None, SUKEY_MENU_OPTIONS)
 		Else
@@ -124,8 +129,12 @@ Event OnOptionMenuAccept(Int aiOpenedMenu, Int aiSelectedOption)
 	
 	While(i < StorageUtil.IntListCount(None, SUKEY_MENU_OPTIONS))
 		If(aiOpenedMenu == StorageUtil.IntListGet(None, SUKEY_MENU_OPTIONS, i))
-			ChangeInitOrder(StorageUtil.StringListGet(None, SUKEY_MENU_OPTIONS, i), aiSelectedOption)
-			i = StorageUtil.IntListCount(None, SUKEY_MENU_OPTIONS)
+			If (aiSelectedOption == MOVE_TOP || aiSelectedOption == MOVE_UP || aiSelectedOption == MOVE_DOWN || aiSelectedOption == MOVE_BOTTOM)
+				ChangeInitOrder(StorageUtil.StringListGet(None, SUKEY_MENU_OPTIONS, i), aiSelectedOption)
+				i = StorageUtil.IntListCount(None, SUKEY_MENU_OPTIONS)
+			ElseIf (aiSelectedOption == INITIALIZE_MOD)
+				InitializeMod(StorageUtil.StringListGet(None, SUKEY_MENU_OPTIONS, i))
+				i = StorageUtil.IntListCount(None, SUKEY_MENU_OPTIONS)
 		Else
 			i += 1
 		EndIf
@@ -153,69 +162,69 @@ Function ChangeInitOrder(String asModName, Int aiPositionChange)
 	;ShowMessage("Index: " + ModIndex + "\nQuest: " + (InitQuest As Quest).GetName(), False)
 
 	If(aiPositionChange == MOVE_TOP)
-		If(ModIndex == (StorageUtil.StringListCount(None, SUKEY_INSTALLED_MODS) - 1))
+		If(ModIndex == (StorageUtil.StringListCount(None, SUKEY_INSTALL_MODS) - 1))
 			Return
 		EndIf
 
-		StorageUtil.FormListRemove(None, SUKEY_INSTALLED_MODS, InitQuest)
-		StorageUtil.FormListAdd(None, SUKEY_INSTALLED_MODS, InitQuest)
+		StorageUtil.FormListRemove(None, SUKEY_INSTALL_MODS, InitQuest)
+		StorageUtil.FormListAdd(None, SUKEY_INSTALL_MODS, InitQuest)
 		
-		StorageUtil.StringListRemove(None, SUKEY_INSTALLED_MODS, asModName)
-		StorageUtil.StringListAdd(None, SUKEY_INSTALLED_MODS, asModName)
+		StorageUtil.StringListRemove(None, SUKEY_INSTALL_MODS, asModName)
+		StorageUtil.StringListAdd(None, SUKEY_INSTALL_MODS, asModName)
 		
-		StorageUtil.IntListRemove(None, SUKEY_INSTALLED_MODS, iSetStage)
-		StorageUtil.IntListAdd(None, SUKEY_INSTALLED_MODS, iSetStage)
+		StorageUtil.IntListRemove(None, SUKEY_INSTALL_MODS, iSetStage)
+		StorageUtil.IntListAdd(None, SUKEY_INSTALL_MODS, iSetStage)
 	ElseIf(aiPositionChange == MOVE_UP)
-		If(ModIndex == (StorageUtil.StringListCount(None, SUKEY_INSTALLED_MODS) - 1))
+		If(ModIndex == (StorageUtil.StringListCount(None, SUKEY_INSTALL_MODS) - 1))
 			Return
 		EndIf
 		
-		If(ModIndex == (StorageUtil.StringListCount(None, SUKEY_INSTALLED_MODS) - 2)) ;this is equivalent to MOVE_TOP, errors otherwise
+		If(ModIndex == (StorageUtil.StringListCount(None, SUKEY_INSTALL_MODS) - 2)) ;this is equivalent to MOVE_TOP, errors otherwise
 		
-			StorageUtil.FormListRemove(None, SUKEY_INSTALLED_MODS, InitQuest)
-			StorageUtil.FormListAdd(None, SUKEY_INSTALLED_MODS, InitQuest)
+			StorageUtil.FormListRemove(None, SUKEY_INSTALL_MODS, InitQuest)
+			StorageUtil.FormListAdd(None, SUKEY_INSTALL_MODS, InitQuest)
 			
-			StorageUtil.StringListRemove(None, SUKEY_INSTALLED_MODS, asModName)
-			StorageUtil.StringListAdd(None, SUKEY_INSTALLED_MODS, asModName)
+			StorageUtil.StringListRemove(None, SUKEY_INSTALL_MODS, asModName)
+			StorageUtil.StringListAdd(None, SUKEY_INSTALL_MODS, asModName)
 
-			StorageUtil.IntListRemove(None, SUKEY_INSTALLED_MODS, iSetStage)
-			StorageUtil.IntListAdd(None, SUKEY_INSTALLED_MODS, iSetStage)
+			StorageUtil.IntListRemove(None, SUKEY_INSTALL_MODS, iSetStage)
+			StorageUtil.IntListAdd(None, SUKEY_INSTALL_MODS, iSetStage)
 		Else
-			StorageUtil.FormListRemove(None, SUKEY_INSTALLED_MODS, InitQuest)
-			StorageUtil.FormListInsert(None, SUKEY_INSTALLED_MODS, (ModIndex + 1), InitQuest)
+			StorageUtil.FormListRemove(None, SUKEY_INSTALL_MODS, InitQuest)
+			StorageUtil.FormListInsert(None, SUKEY_INSTALL_MODS, (ModIndex + 1), InitQuest)
 			
-			StorageUtil.StringListRemove(None, SUKEY_INSTALLED_MODS, asModName)
-			StorageUtil.StringListInsert(None, SUKEY_INSTALLED_MODS, (ModIndex + 1), asModName)
+			StorageUtil.StringListRemove(None, SUKEY_INSTALL_MODS, asModName)
+			StorageUtil.StringListInsert(None, SUKEY_INSTALL_MODS, (ModIndex + 1), asModName)
 			
-			StorageUtil.IntListRemove(None, SUKEY_INSTALLED_MODS, iSetStage)
-			StorageUtil.IntListAdd(None, SUKEY_INSTALLED_MODS, (ModIndex +1), iSetStage)
+			StorageUtil.IntListRemove(None, SUKEY_INSTALL_MODS, iSetStage)
+			StorageUtil.IntListAdd(None, SUKEY_INSTALL_MODS, (ModIndex +1), iSetStage)
 		EndIf
 	ElseIf(aiPositionChange == MOVE_DOWN)
 		If(ModIndex == 0)
 			Return
 		EndIf
 		
-		StorageUtil.FormListRemove(None, SUKEY_INSTALLED_MODS, InitQuest)
-		StorageUtil.FormListInsert(None, SUKEY_INSTALLED_MODS, (ModIndex - 1), InitQuest)
+		StorageUtil.FormListRemove(None, SUKEY_INSTALL_MODS, InitQuest)
+		StorageUtil.FormListInsert(None, SUKEY_INSTALL_MODS, (ModIndex - 1), InitQuest)
 		
-		StorageUtil.StringListRemove(None, SUKEY_INSTALLED_MODS, asModName)
-		StorageUtil.StringListInsert(None, SUKEY_INSTALLED_MODS, (ModIndex - 1), asModName)
+		StorageUtil.StringListRemove(None, SUKEY_INSTALL_MODS, asModName)
+		StorageUtil.StringListInsert(None, SUKEY_INSTALL_MODS, (ModIndex - 1), asModName)
 		
-		StorageUtil.IntListRemove(None, SUKEY_INSTALLED_MODS, iSetStage)
-		StorageUtil.IntListAdd(None, SUKEY_INSTALLED_MODS, (ModIndex -1), iSetStage)
+		StorageUtil.IntListRemove(None, SUKEY_INSTALL_MODS, iSetStage)
+		StorageUtil.IntListAdd(None, SUKEY_INSTALL_MODS, (ModIndex -1), iSetStage)
 	ElseIf(aiPositionChange == MOVE_BOTTOM)
 		If(ModIndex == 0)
 			Return
 		EndIf
 		
-		StorageUtil.FormListRemove(None, SUKEY_INSTALLED_MODS, InitQuest)
-		StorageUtil.FormListInsert(None, SUKEY_INSTALLED_MODS, 0, InitQuest)
+		StorageUtil.FormListRemove(None, SUKEY_INSTALL_MODS, InitQuest)
+		StorageUtil.FormListInsert(None, SUKEY_INSTALL_MODS, 0, InitQuest)
 		
-		StorageUtil.StringListRemove(None, SUKEY_INSTALLED_MODS, asModName)
-		StorageUtil.StringListInsert(None, SUKEY_INSTALLED_MODS, 0, asModName)
+		StorageUtil.StringListRemove(None, SUKEY_INSTALL_MODS, asModName)
+		StorageUtil.StringListInsert(None, SUKEY_INSTALL_MODS, 0, asModName)
 		
-		StorageUtil.IntListRemove(None, SUKEY_INSTALLED_MODS, iSetStage)
-		StorageUtil.IntListAdd(None, SUKEY_INSTALLED_MODS, 0, iSetStage)
+		StorageUtil.IntListRemove(None, SUKEY_INSTALL_MODS, iSetStage)
+		StorageUtil.IntListAdd(None, SUKEY_INSTALL_MODS, 0, iSetStage)
 	EndIf
 EndFunction
 
@@ -225,7 +234,24 @@ Function InitializeMod(String asModName)
 	Int iSetStage = StorageUtil.IntListGet(None, SUKEY_INSTALL_MODS, ModIndex)
 	
 	If (InitQuest.SetStage(iSetStage) == false)
-		ExceptionMessage(asModName + "$MOD_FAILED_TO_INITIALIZE")
+		ShowMessage(asModName + "$MOD_FAILED_TO_INITIALIZE", false, "OK")
 		Return
 	Else
-		
+		StorageUtil.StringListRemove(None, SUKEY_INSTALL_MODS, asModName)
+		StorageUtil.FormListRemove(None, SUKEY_INSTALL_MODS, InitQuest)
+		StorageUtil.IntListRemove(None, SUKEY_INSTALL_MODS, iSetStage)
+	EndIf
+EndFunction
+
+Function StartInitSequence()
+
+	While (StorageUtil.StringListCount(None, SUKEY_INSTALL_MODS) > 0)
+		String ModName = StorageUtil.StringListGet(None, SUKEY_INSTALL_MODS, 0)
+		InitializeMod(ModName)
+		Utility.WaitMenuMode(TimeToNextInit)
+	EndWhile
+	
+	ForcePageReset()
+	ShowMessage("Initialization sequence complete./nAny mods remaining in list have failed to initialize")
+	
+EndFunction
