@@ -6,14 +6,15 @@ String[] LogLevel
 String Property SUKEY_REGISTERED_MODS = "APPS.RegisteredMods" AutoReadOnly Hidden
 String Property SUKEY_MENU_OPTIONS = "APPS.MCM.RegisteredMods" AutoReadOnly Hidden
 String Property SUKEY_INSTALL_MODS = "APPS.InstallMods" AutoReadOnly Hidden
+String Property SUKEY_INSTALL_MODS_TOOLTIP = "APPS.InstallMods.Tooltip" AutoReadOnly Hidden
 Int Property MOVE_TOP = 0 AutoReadOnly Hidden
 Int Property MOVE_UP = 1 AutoReadOnly Hidden
 Int Property MOVE_DOWN = 2 AutoReadOnly Hidden
 Int Property MOVE_BOTTOM = 3 AutoReadOnly Hidden
 Int Property INITIALIZE_MOD = 5 AutoReadOnly Hidden
-Int Property InitControlFlags = OPTION_FLAG_NONE Auto
-Float Property TimeToNextInit = 1.0 Auto
-Bool Property InitInProgress = False Auto
+Int Property InitControlFlags Auto Hidden
+Float Property TimeToNextInit = 1.0 Auto Hidden
+Bool Property InitInProgress = False Auto Hidden
 
 
 Event OnConfigInit()
@@ -26,13 +27,14 @@ Event OnConfigInit()
 	Ordering[2] = "$CHANGE_NOTHING"
 	Ordering[3] = "$MOVE_DOWN"
 	Ordering[4] = "$MOVE_BOTTOM"
-	Ordering[5] = ""
+	Ordering[5] = "---------------"
 	Ordering[6] = "$INITIALIZE_MOD"
 	LogLevel = New String[4]
 	LogLevel[0] = "$EVERYTHING"
 	LogLevel[1] = "$WARNINGS_AND_ERRORS"
 	LogLevel[2] = "$ONLY_ERRORS"
 	LogLevel[3] = "$NOTHING"
+	InitControlFlags = OPTION_FLAG_NONE
 EndEvent
 
 Event OnPageReset(String asPage)
@@ -108,7 +110,7 @@ State DisplayErrorMessage
 EndState
 
 State WaitingTimeBetweenInits
-	Event OnSliderOpenST
+	Event OnSliderOpenST()
 		SetSliderDialogStartValue(TimeToNextInit)
 		SetSliderDialogDefaultValue(1.0)
 		SetSliderDialogRange(0.0, 5.0)
@@ -118,9 +120,10 @@ State WaitingTimeBetweenInits
 	Event OnSliderAcceptST(float a_value)
 		TimeToNextInit = a_value
 		SetSliderOptionValueST(TimeToNextInit, "{1} seconds")
+	EndEvent
 
-	Event OnHighlightST
-		SetInfoText($EXPLAIN_WAITING_TIME_BETWEEN_INITS)
+	Event OnHighlightST()
+		SetInfoText("$EXPLAIN_WAITING_TIME_BETWEEN_INITS")
 	EndEvent
 EndState
 
@@ -146,6 +149,7 @@ State StartInitialization
 			InitInProgress = false
 			SetTextOptionValueST("$GO")
 			ForcePageReset()
+		EndIf
 	EndEvent
 EndState
 			
@@ -175,6 +179,7 @@ Event OnOptionMenuAccept(Int aiOpenedMenu, Int aiSelectedOption)
 			ElseIf (aiSelectedOption == INITIALIZE_MOD)
 				InitializeMod(StorageUtil.StringListGet(None, SUKEY_MENU_OPTIONS, i))
 				i = StorageUtil.IntListCount(None, SUKEY_MENU_OPTIONS)
+			EndIf
 		Else
 			i += 1
 		EndIf
@@ -240,7 +245,7 @@ Function ChangeInitOrder(String asModName, Int aiPositionChange)
 		StorageUtil.StringListInsert(None, SUKEY_INSTALL_MODS, (ModIndex - 1), asModName)
 		
 		StorageUtil.IntListRemove(None, SUKEY_INSTALL_MODS, iSetStage)
-		StorageUtil.IntListAdd(None, SUKEY_INSTALL_MODS, (ModIndex -1), iSetStage)
+		StorageUtil.IntListAdd(None, SUKEY_INSTALL_MODS, (ModIndex - 1), iSetStage)
 	ElseIf(aiPositionChange == MOVE_BOTTOM)
 		If(ModIndex == 0)
 			Return
@@ -259,7 +264,7 @@ EndFunction
 
 Function InitializeMod(String asModName)
 	Int ModIndex = StorageUtil.StringListFind(None, SUKEY_INSTALL_MODS, asModName)
-	Form InitQuest = StorageUtil.FormListGet(None, SUKEY_INSTALL_MODS, ModIndex)
+	Quest InitQuest = StorageUtil.FormListGet(None, SUKEY_INSTALL_MODS, ModIndex) as Quest
 	Int iSetStage = StorageUtil.IntListGet(None, SUKEY_INSTALL_MODS, ModIndex)
 	
 	If (InitQuest.SetStage(iSetStage) == false)
