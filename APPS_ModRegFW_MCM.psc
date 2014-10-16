@@ -11,6 +11,7 @@ Int Property MOVE_UP = 1 AutoReadOnly Hidden
 Int Property MOVE_DOWN = 2 AutoReadOnly Hidden
 Int Property MOVE_BOTTOM = 3 AutoReadOnly Hidden
 Int Property INITIALIZE_MOD = 5 AutoReadOnly Hidden
+Int InitSafetyLock Property = OPTION_FLAG_NONE
 Float Property TimeToNextInit Auto
 
 
@@ -50,8 +51,8 @@ Event OnPageReset(String asPage)
 		AddMenuOptionST("LogRedirectMenu", "$LOG_REDIRECT_MENU", "Nothing")
 	ElseIf(asPage == Pages[1])
 		SetCursorFillMode(TOP_TO_BOTTOM)
-		AddSliderOptionST("WaitingTimeBetweenInits", $WAITING_TIME_BETWEEN_INITS, 1.0, "{1} seconds")
-		AddTextOptionST("StartInitialization", "$START_INITIALIZATION_SEQUENCE", "$GO")
+		AddSliderOptionST("WaitingTimeBetweenInits", "$WAITING_TIME_BETWEEN_INITS", 1.0, "{1} seconds")
+		AddTextOptionST("StartInitialization", "$START_INITIALIZATION_SEQUENCE", "$GO", InitSafetyLock)
 		AddEmptyOption()
 		AddHeaderOption("$INITIALIZATION_ORDER")
 		AddEmptyOption()
@@ -60,7 +61,7 @@ Event OnPageReset(String asPage)
 		Int i = InstalledMods
 		
 		While(i > 0)
-			StorageUtil.IntListAdd(None, SUKEY_MENU_OPTIONS, AddMenuOption(StorageUtil.StringListGet(None, SUKEY_INSTALL_MODS, i - 1), "#" + (InstalledMods + 1 - i) As String + ": "))
+			StorageUtil.IntListAdd(None, SUKEY_MENU_OPTIONS, AddMenuOption(StorageUtil.StringListGet(None, SUKEY_INSTALL_MODS, i - 1), "#" + (InstalledMods + 1 - i) As String + ": ", InitSafetyLock))
 			StorageUtil.StringListAdd(None, SUKEY_MENU_OPTIONS, StorageUtil.StringListGet(None, SUKEY_INSTALL_MODS, i - 1))
 			i -= 1
 		EndWhile
@@ -99,16 +100,48 @@ State DisplayErrorMessage
 	EndEvent
 EndState
 
+State WaitingTimeBetweenInits
+	Event OnSliderOpenST
+		SetSliderDialogStartValue(TimeToNextInit)
+		SetSliderDialogDefaultValue(1.0)
+		SetSliderDialogRange(0.0, 5.0)
+		SetSliderDialogInterval(0.1)
+	EndEvent
+	
+	Event OnSliderAcceptST(float a_value)
+		TimeToNextInit = a_value
+		SetSliderOptionValueST(TimeToNextInit, "{1} seconds")
+
+	Event OnHighlightST
+		SetInfoText($EXPLAIN_WAITING_TIME_BETWEEN_INITS)
+	EndEvent
+EndState
+
 State StartInitialization
 	Event OnHighlightST()
 		SetInfoText("$EXPLAIN_START_INITIALIZATION")
 	EndEvent
 	
 	Event OnSelectST()
-		;start initialization of mods
-		;disable this option until init finished
-		;enable this option
-
+		If (ShowMessage("$START_INITIALIZATION_CONFIRMATION") == true)
+			InitSafetyLock = OPTION_FLAG_DISABLED
+			SetOptionFlagsST(InitSafetyLock)
+			ForcePageReset()	;this ensures install order is displayed again with OPTION_FLAG_DISABLED
+			
+			While (StorageUtil.StringListCount(None, SUKEY_INSTALL_MODS) > 0)
+				String ModName = StorageUtil.StringListGet(None, SUKEY_INSTALL_MODS, 0)
+				InitializeMod(ModName)
+				Utility.WaitMenuMode(TimeToNextInit)
+			EndWhile
+			
+			InitSafetyLock = OPTION_FLAG_NONE
+			SetOptionFlagsST(InitSafetyLock)
+			ForcePageReset()
+			
+			ShowMessage("Initialization sequence complete.\nAny mods remaining in list have failed to initialize")
+	EndEvent
+EndState
+			
 Event OnOptionMenuOpen(Int aiOption)
 	Int i
 
@@ -143,17 +176,6 @@ Event OnOptionMenuAccept(Int aiOpenedMenu, Int aiSelectedOption)
 	ForcePageReset()
 EndEvent
 
-;/	|-----------------------------------------------------------------------------------|
-	|INTERNAL FUNCTION, NOT PART OF API. DO NOT USE ON ITS OWN.							|
-	|Changes the order in which the mods will be initialized.							|
-	|-----------------------------------------------------------------------------------|
-	|Parameter: asModName																|
-	|The name of the mod that we want to change its initialization order.				|
-	|-----------------------------------------------------------------------------------|
-	|Parameter: aiPositionChange														|
-	|The type of position change we want to achieve. This is contained in Ordering[].	|
-	|-----------------------------------------------------------------------------------|
-/;
 Function ChangeInitOrder(String asModName, Int aiPositionChange)
 	Int ModIndex = StorageUtil.StringListFind(None, SUKEY_INSTALL_MODS, asModName)
 	Form InitQuest = StorageUtil.FormListGet(None, SUKEY_INSTALL_MODS, ModIndex)
@@ -241,17 +263,4 @@ Function InitializeMod(String asModName)
 		StorageUtil.FormListRemove(None, SUKEY_INSTALL_MODS, InitQuest)
 		StorageUtil.IntListRemove(None, SUKEY_INSTALL_MODS, iSetStage)
 	EndIf
-EndFunction
-
-Function StartInitSequence()
-
-	While (StorageUtil.StringListCount(None, SUKEY_INSTALL_MODS) > 0)
-		String ModName = StorageUtil.StringListGet(None, SUKEY_INSTALL_MODS, 0)
-		InitializeMod(ModName)
-		Utility.WaitMenuMode(TimeToNextInit)
-	EndWhile
-	
-	ForcePageReset()
-	ShowMessage("Initialization sequence complete./nAny mods remaining in list have failed to initialize")
-	
 EndFunction
