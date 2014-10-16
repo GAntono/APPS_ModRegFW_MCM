@@ -11,8 +11,9 @@ Int Property MOVE_UP = 1 AutoReadOnly Hidden
 Int Property MOVE_DOWN = 2 AutoReadOnly Hidden
 Int Property MOVE_BOTTOM = 3 AutoReadOnly Hidden
 Int Property INITIALIZE_MOD = 5 AutoReadOnly Hidden
-Int InitSafetyLock Property = OPTION_FLAG_NONE
-Float Property TimeToNextInit Auto
+Int Property InitControlFlags = OPTION_FLAG_NONE Auto
+Float Property TimeToNextInit = 1.0 Auto
+Bool Property InitInProgress = False Auto
 
 
 Event OnConfigInit()
@@ -50,9 +51,15 @@ Event OnPageReset(String asPage)
 		AddHeaderOption("$ERROR_REDIRECT")
 		AddMenuOptionST("LogRedirectMenu", "$LOG_REDIRECT_MENU", "Nothing")
 	ElseIf(asPage == Pages[1])
+		If (InitInProgress || StorageUtil.StringListCount(None, SUKEY_INSTALL_MODS) == 0) 
+			InitControlFlags = OPTION_FLAG_DISABLED
+		Else
+			InitControlFlags = OPTION_FLAG_NONE
+		EndIf
+			
 		SetCursorFillMode(TOP_TO_BOTTOM)
 		AddSliderOptionST("WaitingTimeBetweenInits", "$WAITING_TIME_BETWEEN_INITS", 1.0, "{1} seconds")
-		AddTextOptionST("StartInitialization", "$START_INITIALIZATION_SEQUENCE", "$GO", InitSafetyLock)
+		AddTextOptionST("StartInitialization", "$START_INITIALIZATION_SEQUENCE", "$GO", InitControlFlags)
 		AddEmptyOption()
 		AddHeaderOption("$INITIALIZATION_ORDER")
 		AddEmptyOption()
@@ -61,7 +68,7 @@ Event OnPageReset(String asPage)
 		Int i = InstalledMods
 		
 		While(i > 0)
-			StorageUtil.IntListAdd(None, SUKEY_MENU_OPTIONS, AddMenuOption(StorageUtil.StringListGet(None, SUKEY_INSTALL_MODS, i - 1), "#" + (InstalledMods + 1 - i) As String + ": ", InitSafetyLock))
+			StorageUtil.IntListAdd(None, SUKEY_MENU_OPTIONS, AddMenuOption(StorageUtil.StringListGet(None, SUKEY_INSTALL_MODS, i - 1), "#" + (InstalledMods + 1 - i) As String + ": ", InitControlFlags))
 			StorageUtil.StringListAdd(None, SUKEY_MENU_OPTIONS, StorageUtil.StringListGet(None, SUKEY_INSTALL_MODS, i - 1))
 			i -= 1
 		EndWhile
@@ -124,8 +131,8 @@ State StartInitialization
 	
 	Event OnSelectST()
 		If (ShowMessage("$START_INITIALIZATION_CONFIRMATION") == true)
-			InitSafetyLock = OPTION_FLAG_DISABLED
-			SetOptionFlagsST(InitSafetyLock)
+			InitInProgress = true
+			SetTextOptionValueST("$INITIALIZING")
 			ForcePageReset()	;this ensures install order is displayed again with OPTION_FLAG_DISABLED
 			
 			While (StorageUtil.StringListCount(None, SUKEY_INSTALL_MODS) > 0)
@@ -134,11 +141,11 @@ State StartInitialization
 				Utility.WaitMenuMode(TimeToNextInit)
 			EndWhile
 			
-			InitSafetyLock = OPTION_FLAG_NONE
-			SetOptionFlagsST(InitSafetyLock)
-			ForcePageReset()
-			
 			ShowMessage("Initialization sequence complete.\nAny mods remaining in list have failed to initialize")
+			
+			InitInProgress = false
+			SetTextOptionValueST("$GO")
+			ForcePageReset()
 	EndEvent
 EndState
 			
