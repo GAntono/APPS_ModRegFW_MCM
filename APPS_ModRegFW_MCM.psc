@@ -118,7 +118,12 @@ State WaitingTimeBetweenInits
 	EndEvent
 	
 	Event OnSliderAcceptST(float a_value)
-		TimeToNextInit = a_value
+		If (a_value < 0.5)	;waiting times < 0.5 seconds are prone to errors (Heromaster)
+			TimeToNextInit = 0.0
+		Else
+			TimeToNextInit = a_value
+		EndIf
+		
 		SetSliderOptionValueST(TimeToNextInit, "{1} seconds")
 	EndEvent
 
