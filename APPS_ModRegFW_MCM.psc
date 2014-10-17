@@ -157,6 +157,19 @@ State StartInitialization
 		EndIf
 	EndEvent
 EndState
+
+Event OnOptionHighlight(Int aiOption)
+	Int i
+	
+	While(i < StorageUtil.IntListCount(None, SUKEY_MENU_OPTIONS))
+		If (aiOption == StorageUtil.IntListGet(None, SUKEY_MENU_OPTIONS, i))
+			SetInfoText(StorageUtil.StringListGet(None, SUKEY_INSTALL_MODS_TOOLTIP, i))
+			i = StorageUtil.IntListCount(None, SUKEY_MENU_OPTIONS))
+		Else
+			i += 1
+		EndIf
+	EndWhile
+EndEvent
 			
 Event OnOptionMenuOpen(Int aiOption)
 	Int i
