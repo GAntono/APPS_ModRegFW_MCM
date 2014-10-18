@@ -109,7 +109,7 @@ Event OnPageReset(String asPage)
 		Int i = UninstallMods
 		
 		While (i > 0)
-			StorageUtil.IntListAdd(None, SUKEY_MENU_OPTIONS, AddToggleOption(StorageUtil.StringListGet(None, SUKEY_UNINSTALL_MODS, i - 1), checked = true, UninstallControlFlags))
+			StorageUtil.IntListAdd(None, SUKEY_MENU_OPTIONS, AddToggleOption(StorageUtil.StringListGet(None, SUKEY_UNINSTALL_MODS, i - 1), true, UninstallControlFlags))
 			StorageUtil.StringListAdd(None, SUKEY_MENU_OPTIONS, StorageUtil.StringListGet(None, SUKEY_UNINSTALL_MODS, i - 1))
 			i -= 1
 		EndWhile		
@@ -229,10 +229,10 @@ Event OnOptionHighlight(Int aiOption)
 			If (aiOption == StorageUtil.IntListGet(None, SUKEY_MENU_OPTIONS, i))
 				If (CurrentPage == Pages[2])
 					SetInfoText(StorageUtil.StringListGet(None, SUKEY_INSTALL_MODS_TOOLTIP, i))
-					i = StorageUtil.IntListCount(None, SUKEY_MENU_OPTIONS))
+					i = StorageUtil.IntListCount(None, SUKEY_MENU_OPTIONS)
 				ElseIf (CurrentPage == Pages[3])
-					SetInfoText($EXPLAIN_UNINSTALL)
-					i = StorageUtil.IntListCount(None, SUKEY_MENU_OPTIONS))
+					SetInfoText("$EXPLAIN_UNINSTALL")
+					i = StorageUtil.IntListCount(None, SUKEY_MENU_OPTIONS)
 				EndIf
 			Else
 				i += 1
@@ -286,11 +286,11 @@ Event OnOptionSelect(Int aiOption)
 				UninstallMod(StorageUtil.StringListGet(None, SUKEY_MENU_OPTIONS, i))
 				i = StorageUtil.IntListCount(None, SUKEY_MENU_OPTIONS)
 			EndIf
+		Else	
+			i += 1
 		EndIf
-	Else
-		i += 1
-	EndIf
-EndWhile
+	EndWhile
+EndEvent
 
 Function ChangeInitOrder(String asModName, Int aiPositionChange)
 	Int ModIndex = StorageUtil.StringListFind(None, SUKEY_INSTALL_MODS, asModName)
@@ -386,12 +386,39 @@ Function UninstallMod(String asModName)
 	Quest UninstallQuest = StorageUtil.FormListGet(None, SUKEY_UNINSTALL_MODS, ModIndex) as Quest
 	Int iSetStage = StorageUtil.IntListGet(None, SUKEY_UNINSTALL_MODS, ModIndex)
 	
-	If (InitQuest.SetStage(iSetStage) == false)
+	If (UninstallQuest.SetStage(iSetStage) == false)
 		ShowMessage(asModName + "$MOD_FAILED_TO_UNINSTALL", false, "OK")
 		Return
 	Else
 		StorageUtil.StringListRemove(None, SUKEY_UNINSTALL_MODS, asModName)
-		StorageUtil.FormListRemove(None, SUKEY_UNINSTALL_MODS, InitQuest)
+		StorageUtil.FormListRemove(None, SUKEY_UNINSTALL_MODS, UninstallQuest)
 		StorageUtil.IntListRemove(None, SUKEY_UNINSTALL_MODS, iSetStage)
 	EndIf
 EndFunction
+
+;/
+DONE:
+Tab: Registry
+	- Show a list of all registered mods
+Tab: Install Manager
+	- Move mods up and down the list to change install order
+	- Menu point "Start Initialization" (Maybe with a ShowMessage where the user will be informed)
+	- Disable above menu point if Initialize Manager is installing or if list is empty
+	- Tooltips of every mod (will contain for some mods messages, in which order they need to be placed)
+Tab: Uninstall Manager
+	- Shows a list of all registered mods which have an uninstall quest
+	
+	- ShowMessage(If mod will be uninstalled, it will uninstall completely)
+	- Menu point "Uninstall all mods"
+	- Disable above menu point if Uninstall Manager is uninstalling or if list is empty
+	
+TODO:
+Tab: Exception Manager
+	- Enable/disable global file logging
+	- ShowMessage if file logging is enabled, that it will now be disabled for this game session
+	- Enable/disable framework logging
+	- LogLevel to write to files (Info, Warning, Error) --> a) Three toggle buttons b) Menu(Everything, Only Warnings and Errors, Only Errors) (for each mod)
+	- LogLevel to display MessageBoxes (Info, Warning, Error) --> a) Three toggle buttons b) Menu(Everything, Only Warnings and Errors, Only Errors) (for each mod)
+	- Redirect log files to: Papyrus log, APPS - Framework user log, each mod with own user log
+	- Mod settings could look like the Profile Menu form SexLab
+/;
