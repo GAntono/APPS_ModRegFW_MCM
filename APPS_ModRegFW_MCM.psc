@@ -16,8 +16,7 @@ Int Property INITIALIZE_MOD = 5 AutoReadOnly Hidden
 Int Property InitControlFlags Auto Hidden
 Int Property UninstallControlFlags Auto Hidden
 Float Property TimeToNextInit = 1.0 Auto Hidden
-Bool Property InitInProgress = False Auto Hidden
-Bool Property UninstallInProgress = False Auto Hidden
+Bool Property SafetyLock = False Auto Hidden
 
 
 
@@ -72,7 +71,7 @@ Event OnPageReset(String asPage)
 			i -= 1
 		EndWhile		
 	ElseIf (asPage == Pages[2])	;install manager
-		If (InitInProgress || StorageUtil.StringListCount(None, SUKEY_INSTALL_MODS) == 0) 
+		If (SafetyLock || StorageUtil.StringListCount(None, SUKEY_INSTALL_MODS) == 0) 
 			InitControlFlags = OPTION_FLAG_DISABLED
 		Else
 			InitControlFlags = OPTION_FLAG_NONE
@@ -94,14 +93,16 @@ Event OnPageReset(String asPage)
 			i -= 1
 		EndWhile
 	ElseIf (asPage == Pages[3])	;uninstall manager
-		If (UninstallInProgress || StorageUtil.StringListCount(None, SUKEY_UNINSTALL_MODS) == 0)
+		If (SafetyLock || StorageUtil.StringListCount(None, SUKEY_UNINSTALL_MODS) == 0)
 			UninstallControlFlags = OPTION_FLAG_DISABLED
 		Else
 			UninstallControlFlags = OPTION_FLAG_NONE
 		EndIf
 	
 		SetCursorFillMode(TOP_TO_BOTTOM)
-		AddHeaderOption($MODS_WITH_UNINSTALL_FEATURE)
+		AddTextOptionST("UninstallAll", "$UNINSTALL_ALL", "$GO", UninstallControlFlags)
+		AddEmptyOption()
+		AddHeaderOption("$MODS_WITH_UNINSTALL_FEATURE")
 		AddEmptyOption()
 		
 		Int UninstallMods = StorageUtil.FormListCount(None, SUKEY_UNINSTALL_MODS)
@@ -177,7 +178,7 @@ State StartInitialization
 	
 	Event OnSelectST()
 		If (ShowMessage("$START_INITIALIZATION_CONFIRMATION") == true)
-			InitInProgress = true
+			SafetyLock = true
 			SetTextOptionValueST("$INITIALIZING")
 			ForcePageReset()	;this ensures install order is displayed again with OPTION_FLAG_DISABLED
 			
@@ -189,12 +190,37 @@ State StartInitialization
 			
 			ShowMessage("$INITIALIZATION_SEQUENCE_COMPLETE")
 			
-			InitInProgress = false
+			SafetyLock = false
 			SetTextOptionValueST("$GO")
 			ForcePageReset()
 		EndIf
 	EndEvent
 EndState
+
+State UninstallAll
+	Event OnHighlightST()
+		SetInfoText("$EXPLAIN_UNINSTALL_ALL")
+	EndEvent
+	
+	Event OnSelectST()
+		If (ShowMessage("$UNINSTALL_ALL_CONFIRMATION") == true)
+			SafetyLock = true
+			SetTextOptionValueST("$UNINSTALLING")
+			ForcePageReset()	;this ensures uninstall list is displayed again with OPTION_FLAG_DISABLED
+			
+			While (StorageUtil.StringListCount(None, SUKEY_UNINSTALL_MODS) > 0)
+				String ModName = StorageUtil.StringListGet(None, SUKEY_UNINSTALL_MODS, 0)
+				UninstallMod(ModName)
+			EndWhile
+			
+			ShowMessage("$UNINSTALL_SEQUENCE_COMPLETE")
+			
+			SafetyLock = false
+			SetTextOptionValueST("$GO")
+			ForcePageReset()
+		EndIf
+	EndEvent
+EndState			
 
 Event OnOptionHighlight(Int aiOption)
 		Int i
