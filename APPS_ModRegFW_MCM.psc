@@ -413,6 +413,9 @@ Tab: Uninstall Manager
 	- Disable above menu point if Uninstall Manager is uninstalling or if list is empty
 	
 TODO:
+All tabs:
+	- disable everything if any mod is initializing or uninstalling
+	- probably  best done through states
 Tab: Exception Manager
 	- Enable/disable global file logging
 	- ShowMessage if file logging is enabled, that it will now be disabled for this game session
