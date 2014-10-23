@@ -16,7 +16,8 @@ Int Property INITIALIZE_MOD = 5 AutoReadOnly Hidden
 Int Property InitControlFlags Auto Hidden
 Int Property UninstallControlFlags Auto Hidden
 Float Property TimeToNextInit = 1.0 Auto Hidden
-Bool Property SafetyLock = False Auto Hidden
+Bool Property InitSafetyLock = False Auto Hidden
+Bool Property UninstSafetyLock = False Auto Hidden
 
 
 
@@ -71,15 +72,23 @@ Event OnPageReset(String asPage)
 			i -= 1
 		EndWhile		
 	ElseIf (asPage == Pages[2])	;install manager
-		If (SafetyLock || StorageUtil.StringListCount(None, SUKEY_INSTALL_MODS) == 0) 
+		If (InitSafetyLock || UninstSafetyLock || StorageUtil.StringListCount(None, SUKEY_INSTALL_MODS) == 0) 
 			InitControlFlags = OPTION_FLAG_DISABLED
 		Else
 			InitControlFlags = OPTION_FLAG_NONE
 		EndIf
 			
 		SetCursorFillMode(TOP_TO_BOTTOM)
-		AddSliderOptionST("WaitingTimeBetweenInits", "$WAITING_TIME_BETWEEN_INITS", 1.0, "{1} seconds")
-		AddTextOptionST("StartInitialization", "$START_INITIALIZATION_SEQUENCE", "$GO", InitControlFlags)
+		AddSliderOptionST("WaitingTimeBetweenInits", "$WAITING_TIME_BETWEEN_INITS", 1.0, "{1} seconds", InitControlFlags)
+		
+		If (InitSafetyLock)
+			AddHeaderOption("$INIT_IN_PROGRESS")
+		ElseIf (UninstSafetyLock)
+			AddHeaderOption("$UNINST_IN_PROGRESS")
+		Else
+			AddTextOptionST("StartInitialization", "$START_INITIALIZATION_SEQUENCE", "$GO")
+		EndIf
+		
 		AddEmptyOption()
 		AddHeaderOption("$INITIALIZATION_ORDER")
 		AddEmptyOption()
@@ -93,15 +102,24 @@ Event OnPageReset(String asPage)
 			i -= 1
 		EndWhile
 	ElseIf (asPage == Pages[3])	;uninstall manager
-		If (SafetyLock || StorageUtil.StringListCount(None, SUKEY_UNINSTALL_MODS) == 0)
+		If (InitSafetyLock || UninstSafetyLock || StorageUtil.StringListCount(None, SUKEY_UNINSTALL_MODS) == 0)
 			UninstallControlFlags = OPTION_FLAG_DISABLED
 		Else
 			UninstallControlFlags = OPTION_FLAG_NONE
 		EndIf
 	
 		SetCursorFillMode(TOP_TO_BOTTOM)
-		AddTextOptionST("UninstallAll", "$UNINSTALL_ALL", "$GO", UninstallControlFlags)
-		AddEmptyOption()
+		
+		If (InitSafetyLock)
+			AddHeaderOption("$INIT_IN_PROGRESS")
+		ElseIf (UninstSafetyLock)
+			AddHeaderOption("$UNINST_IN_PROGRESS")
+		Else
+			AddEmptyOption()
+		EndIf
+		
+		;AddTextOptionST("UninstallAll", "$UNINSTALL_ALL", "$GO", UninstallControlFlags)	;one ring (button) to uninstall them all
+		;AddEmptyOption()
 		AddHeaderOption("$MODS_WITH_UNINSTALL_FEATURE")
 		AddEmptyOption()
 		
@@ -178,25 +196,25 @@ State StartInitialization
 	
 	Event OnSelectST()
 		If (ShowMessage("$START_INITIALIZATION_CONFIRMATION") == true)
-			SafetyLock = true
+			InitSafetyLock = true
 			SetTextOptionValueST("$INITIALIZING")
 			ForcePageReset()	;this ensures install order is displayed again with OPTION_FLAG_DISABLED
 			
 			While (StorageUtil.StringListCount(None, SUKEY_INSTALL_MODS) > 0)
 				String ModName = StorageUtil.StringListGet(None, SUKEY_INSTALL_MODS, 0)
-				InitializeMod(ModName)
+				InitializeMod(ModName, abSafetyLock = false) ;SafetyLock is handled by line InitSafetyLock = true
 				Utility.WaitMenuMode(TimeToNextInit)
 			EndWhile
 			
 			ShowMessage("$INITIALIZATION_SEQUENCE_COMPLETE")
 			
-			SafetyLock = false
+			InitSafetyLock = false
 			SetTextOptionValueST("$GO")
 			ForcePageReset()
 		EndIf
 	EndEvent
 EndState
-
+;/	one ring (button) to uninstall them all
 State UninstallAll
 	Event OnHighlightST()
 		SetInfoText("$EXPLAIN_UNINSTALL_ALL")
@@ -221,7 +239,7 @@ State UninstallAll
 		EndIf
 	EndEvent
 EndState			
-
+/;
 Event OnOptionHighlight(Int aiOption)
 		Int i
 		
@@ -366,34 +384,54 @@ Function ChangeInitOrder(String asModName, Int aiPositionChange)
 	EndIf
 EndFunction
 
-Function InitializeMod(String asModName)
+Function InitializeMod(String asModName, Bool abSafetyLock = true)
 	Int ModIndex = StorageUtil.StringListFind(None, SUKEY_INSTALL_MODS, asModName)
 	Quest InitQuest = StorageUtil.FormListGet(None, SUKEY_INSTALL_MODS, ModIndex) as Quest
 	Int iSetStage = StorageUtil.IntListGet(None, SUKEY_INSTALL_MODS, ModIndex)
 	
+	If (abSafetyLock)
+		InitSafetyLock = true
+	EndIf
+	
 	If (InitQuest.SetStage(iSetStage) == false)
 		ShowMessage(asModName + "$MOD_FAILED_TO_INITIALIZE", false, "OK")
-		Return
-	Else
-		StorageUtil.StringListRemove(None, SUKEY_INSTALL_MODS, asModName)
-		StorageUtil.FormListRemove(None, SUKEY_INSTALL_MODS, InitQuest)
-		StorageUtil.IntListRemove(None, SUKEY_INSTALL_MODS, iSetStage)
 	EndIf
+	
+	If (abSafetyLock)
+		InitSafetyLock = false
+	EndIf
+	
+	StorageUtil.StringListRemove(None, SUKEY_INSTALL_MODS, asModName)
+	StorageUtil.FormListRemove(None, SUKEY_INSTALL_MODS, InitQuest)
+	StorageUtil.IntListRemove(None, SUKEY_INSTALL_MODS, iSetStage)
+	
+	StorageUtil.StringListRemove(None, SUKEY_REGISTERED_MODS, asModName)
+	StorageUtil.FormListRemove(None, SUKEY_REGISTERED_MODS, InitQuest)
 EndFunction
 
-Function UninstallMod(String asModName)
+Function UninstallMod(String asModName, Bool abSafetyLock = true)
 	Int ModIndex = StorageUtil.StringListFind(None, SUKEY_UNINSTALL_MODS, asModName)
 	Quest UninstallQuest = StorageUtil.FormListGet(None, SUKEY_UNINSTALL_MODS, ModIndex) as Quest
 	Int iSetStage = StorageUtil.IntListGet(None, SUKEY_UNINSTALL_MODS, ModIndex)
 	
+	If (abSafetyLock)
+		UninstSafetyLock = true
+	EndIf
+	
 	If (UninstallQuest.SetStage(iSetStage) == false)
 		ShowMessage(asModName + "$MOD_FAILED_TO_UNINSTALL", false, "OK")
-		Return
-	Else
-		StorageUtil.StringListRemove(None, SUKEY_UNINSTALL_MODS, asModName)
-		StorageUtil.FormListRemove(None, SUKEY_UNINSTALL_MODS, UninstallQuest)
-		StorageUtil.IntListRemove(None, SUKEY_UNINSTALL_MODS, iSetStage)
 	EndIf
+	
+	If (abSafetyLock)
+		UninstSafetyLock = false
+	EndIf
+	
+	StorageUtil.StringListRemove(None, SUKEY_UNINSTALL_MODS, asModName)
+	StorageUtil.FormListRemove(None, SUKEY_UNINSTALL_MODS, UninstallQuest)
+	StorageUtil.IntListRemove(None, SUKEY_UNINSTALL_MODS, iSetStage)
+	
+	StorageUtil.StringListRemove(None, SUKEY_REGISTERED_MODS, asModName)
+	StorageUtil.FormListRemove(None, SUKEY_REGISTERED_MODS, InitQuest)
 EndFunction
 
 ;/
@@ -405,17 +443,20 @@ Tab: Install Manager
 	- Menu point "Start Initialization" (Maybe with a ShowMessage where the user will be informed)
 	- Disable above menu point if Initialize Manager is installing or if list is empty
 	- Tooltips of every mod (will contain for some mods messages, in which order they need to be placed)
+	- remove failed mods from the registry
 Tab: Uninstall Manager
-	- Shows a list of all registered mods which have an uninstall quest
-	
+	- Shows a list of all registered mods which have an uninstall quest	
 	- ShowMessage(If mod will be uninstalled, it will uninstall completely)
 	- Menu point "Uninstall all mods"
 	- Disable above menu point if Uninstall Manager is uninstalling or if list is empty
-	
-TODO:
-All tabs:
+	- remove failed mods from the registry
+All tabs
 	- disable everything if any mod is initializing or uninstalling
-	- probably  best done through states
+	- seperate init safety lockup from uninstall safety lockup and display messages accordingly
+------------------------------------------------------------------------------------------------------------------------	
+TODO:
+All tabs:	
+	- display instructions to close MCM menu
 Tab: Exception Manager
 	- Enable/disable global file logging
 	- ShowMessage if file logging is enabled, that it will now be disabled for this game session
