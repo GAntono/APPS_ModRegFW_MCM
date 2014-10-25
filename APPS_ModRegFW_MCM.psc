@@ -1,8 +1,9 @@
 ScriptName APPS_ModRegFW_MCM Extends SKI_ConfigBase
-APPS_FW_Core Property Core Auto
+Import StorageUtil
 Int FileLogLevel
 String[] Ordering
 String[] LogLevel
+String[] LoggingModMenuOptions
 String Property SUKEY_REGISTERED_MODS = "APPS.RegisteredMods" AutoReadOnly Hidden
 String Property SUKEY_MENU_OPTIONS = "APPS.MCM.RegisteredMods" AutoReadOnly Hidden
 String Property SUKEY_INSTALL_MODS = "APPS.InstallMods" AutoReadOnly Hidden
@@ -13,22 +14,22 @@ Int Property MOVE_UP = 1 AutoReadOnly Hidden
 Int Property MOVE_DOWN = 2 AutoReadOnly Hidden
 Int Property MOVE_BOTTOM = 3 AutoReadOnly Hidden
 Int Property INITIALIZE_MOD = 5 AutoReadOnly Hidden
-Int Property InitControlFlags Auto Hidden
-Int Property UninstallControlFlags Auto Hidden
-Float Property TimeToNextInit = 1.0 Auto Hidden
-Bool Property InitSafetyLock = False Auto Hidden
-Bool Property UninstSafetyLock = False Auto Hidden
+Int InitControlFlags 
+Int UninstallControlFlags 
+Float TimeToNextInit = 1.0 
+Bool InitSafetyLock = False 
+Bool UninstSafetyLock = False 
 
 
 
 Event OnConfigInit()
-	Pages = new String[3]
-	Pages[0] = "$LOGGING"
-	Pages[1] = "$REGISTRY"
-	Pages[2] = "$INSTALL_MANAGER"
+	Pages = new String[4]
+	Pages[0] = "$REGISTRY"
+	Pages[1] = "$LOGGING"
+	Pages[2] = "$INITILIZATION_MANAGER"
 	Pages[3] = "$UNINSTALL_MANAGER"
 	
-	Ordering = New String[5]
+	Ordering = New String[7]
 	Ordering[0] = "$MOVE_TOP"
 	Ordering[1] = "$MOVE_UP"
 	Ordering[2] = "$CHANGE_NOTHING"
@@ -45,11 +46,29 @@ Event OnConfigInit()
 EndEvent
 
 Event OnPageReset(String asPage)
-	StorageUtil.IntListClear(None, SUKEY_MENU_OPTIONS)
-	StorageUtil.StringListClear(None, SUKEY_MENU_OPTIONS)
+	IntListClear(None, SUKEY_MENU_OPTIONS)
+	StringListClear(None, SUKEY_MENU_OPTIONS)
 
-	If(asPage == Pages[0])	;logging
+	If (asPage == Pages[0])	;registry
 		SetCursorFillMode(TOP_TO_BOTTOM)
+		AddHeaderOption("$REGISTERED_MODS")
+		AddEmptyOption()
+		
+		Int RegisteredMods = StringListCount(None, SUKEY_REGISTERED_MODS)
+		Int i = RegisteredMods
+		
+		While (i > 0)
+			AddTextOption(StringListGet(None, SUKEY_REGISTERED_MODS, i - 1), "")
+			i -= 1
+		EndWhile		
+	ElseIf (asPage == Pages[1])	;logging
+		SetCursorFillMode(TOP_TO_BOTTOM)
+		AddHeaderOption("$GENERAL_SETTINGS")
+		AddToggleOptionST("EnableLogging", "$ENABLE_LOGGING", Utility.GetINIBool("bEnableLogging:Papyrus"))
+		AddEmptyOption()
+		AddHeaderOption("$MOD_SPECIFIC_SETTINGS")
+		AddMenuOptionST("LoggingModMenu", "PLACEHOLDER", "PLACEHOLDER")
+		;/
 		AddHeaderOption("$LOG_OVERVIEW")
 		AddToggleOptionST("EnableLogs", "$ENABLE_LOGS", Utility.GetINIBool("bEnableLogging:Papyrus"))
 		AddMenuOptionST("LogLevelFile", "$LOG_LEVEL", LogLevel[FileLogLevel])
@@ -59,20 +78,9 @@ Event OnPageReset(String asPage)
 		AddToggleOptionST("DisplayErrorMessage", "$DISPLAY_ERROR_MSG", Core.DisplayError)
 		AddHeaderOption("$ERROR_REDIRECT")
 		AddMenuOptionST("LogRedirectMenu", "$LOG_REDIRECT_MENU", "Nothing")
-	ElseIf (asPage == Pages[1])	;registry
-		SetCursorFillMode(TOP_TO_BOTTOM)
-		AddHeaderOption("$REGISTERED_MODS")
-		AddEmptyOption()
-		
-		Int RegisteredMods = StorageUtil.StringListCount(None, SUKEY_REGISTERED_MODS)
-		Int i = RegisteredMods
-		
-		While (i > 0)
-			AddTextOption(StorageUtil.StringListGet(None, SUKEY_REGISTERED_MODS, i - 1), "")
-			i -= 1
-		EndWhile		
+		/;
 	ElseIf (asPage == Pages[2])	;install manager
-		If (InitSafetyLock || UninstSafetyLock || StorageUtil.StringListCount(None, SUKEY_INSTALL_MODS) == 0) 
+		If (InitSafetyLock || UninstSafetyLock || StringListCount(None, SUKEY_INSTALL_MODS) == 0) 
 			InitControlFlags = OPTION_FLAG_DISABLED
 		Else
 			InitControlFlags = OPTION_FLAG_NONE
@@ -93,16 +101,16 @@ Event OnPageReset(String asPage)
 		AddHeaderOption("$INITIALIZATION_ORDER")
 		AddEmptyOption()
 		
-		Int InstalledMods = StorageUtil.FormListCount(None, SUKEY_INSTALL_MODS)
+		Int InstalledMods = FormListCount(None, SUKEY_INSTALL_MODS)
 		Int i = InstalledMods
 		
 		While (i > 0)
-			StorageUtil.IntListAdd(None, SUKEY_MENU_OPTIONS, AddMenuOption(StorageUtil.StringListGet(None, SUKEY_INSTALL_MODS, i - 1), "#" + (InstalledMods + 1 - i) As String + ": ", InitControlFlags))
-			StorageUtil.StringListAdd(None, SUKEY_MENU_OPTIONS, StorageUtil.StringListGet(None, SUKEY_INSTALL_MODS, i - 1))
+			IntListAdd(None, SUKEY_MENU_OPTIONS, AddMenuOption(StringListGet(None, SUKEY_INSTALL_MODS, i - 1), "#" + (InstalledMods + 1 - i) As String + ": ", InitControlFlags))
+			StringListAdd(None, SUKEY_MENU_OPTIONS, StringListGet(None, SUKEY_INSTALL_MODS, i - 1))
 			i -= 1
 		EndWhile
 	ElseIf (asPage == Pages[3])	;uninstall manager
-		If (InitSafetyLock || UninstSafetyLock || StorageUtil.StringListCount(None, SUKEY_UNINSTALL_MODS) == 0)
+		If (InitSafetyLock || UninstSafetyLock || StringListCount(None, SUKEY_UNINSTALL_MODS) == 0)
 			UninstallControlFlags = OPTION_FLAG_DISABLED
 		Else
 			UninstallControlFlags = OPTION_FLAG_NONE
@@ -123,28 +131,51 @@ Event OnPageReset(String asPage)
 		AddHeaderOption("$MODS_WITH_UNINSTALL_FEATURE")
 		AddEmptyOption()
 		
-		Int UninstallMods = StorageUtil.FormListCount(None, SUKEY_UNINSTALL_MODS)
+		Int UninstallMods = FormListCount(None, SUKEY_UNINSTALL_MODS)
 		Int i = UninstallMods
 		
 		While (i > 0)
-			StorageUtil.IntListAdd(None, SUKEY_MENU_OPTIONS, AddToggleOption(StorageUtil.StringListGet(None, SUKEY_UNINSTALL_MODS, i - 1), true, UninstallControlFlags))
-			StorageUtil.StringListAdd(None, SUKEY_MENU_OPTIONS, StorageUtil.StringListGet(None, SUKEY_UNINSTALL_MODS, i - 1))
+			IntListAdd(None, SUKEY_MENU_OPTIONS, AddTextOption(StringListGet(None, SUKEY_UNINSTALL_MODS, i - 1), "", UninstallControlFlags))
+			StringListAdd(None, SUKEY_MENU_OPTIONS, StringListGet(None, SUKEY_UNINSTALL_MODS, i - 1))
 			i -= 1
 		EndWhile		
 	EndIf
 EndEvent
 
-State EnableLogs
+State EnableLogging
 	Event OnSelectST()
 		Utility.SetINIBool("bEnableLogging:Papyrus", !Utility.GetINIBool("bEnableLogging:Papyrus"))
 		SetToggleOptionValueST(Utility.GetINIBool("bEnableLogging:Papyrus"))
 	EndEvent
 	
 	Event OnHighlightST()
-		SetInfoText("$EXPLAIN_ENABLE_LOGS")
+		SetInfoText("$EXPLAIN_ENABLE_LOGGING")
 	EndEvent
 EndState
 
+State LoggingModMenu
+	Event OnMenuOpenST()
+		Int RegisteredMods = StringListCount(None, SUKEY_REGISTERED_MODS)
+		LoggingModMenuOptions = PapyrusUtil.StringArray(RegisteredMods - 1)
+		Int i
+		
+			While (i < RegisteredMods)
+				LoggingModMenuOptions[i] = StringListGet(None, SUKEY_REGISTERED_MODS, i)
+				i += 1
+			EndWhile
+			
+		SetMenuDialogOptions(LoggingModMenuOptions)
+		SetMenuDialogStartIndex
+		SetMenuDialogDefaultIndex
+	EndEvent
+	
+	Event OnMenuAcceptST(int aiSelectedOption)
+		;LoggingModMenuOptions = PapyrusUtil.StringArray(RegisteredMods - 1)
+		SetMenuOptionValueST(LoggingModMenuOptions[aiSelectedOption])
+		
+EndState
+
+;/
 State DisplayInfoMessage
 	Event OnSelectST()
 		Core.DisplayInfo = !Core.DisplayInfo
@@ -165,7 +196,7 @@ State DisplayErrorMessage
 		SetToggleOptionValueST(Core.DisplayError)
 	EndEvent
 EndState
-
+/;
 State WaitingTimeBetweenInits
 	Event OnSliderOpenST()
 		SetSliderDialogStartValue(TimeToNextInit)
@@ -200,13 +231,14 @@ State StartInitialization
 			SetTextOptionValueST("$INITIALIZING")
 			ForcePageReset()	;this ensures install order is displayed again with OPTION_FLAG_DISABLED
 			
-			While (StorageUtil.StringListCount(None, SUKEY_INSTALL_MODS) > 0)
-				String ModName = StorageUtil.StringListGet(None, SUKEY_INSTALL_MODS, 0)
+			While (StringListCount(None, SUKEY_INSTALL_MODS) > 0)
+				String ModName = StringListGet(None, SUKEY_INSTALL_MODS, 0)
 				InitializeMod(ModName, abSafetyLock = false) ;SafetyLock is handled by line InitSafetyLock = true
 				Utility.WaitMenuMode(TimeToNextInit)
 			EndWhile
 			
 			ShowMessage("$INITIALIZATION_SEQUENCE_COMPLETE")
+			Debug.MessageBox("$INITIALIZATION_SEQUENCE_COMPLETE")
 			
 			InitSafetyLock = false
 			SetTextOptionValueST("$GO")
@@ -226,8 +258,8 @@ State UninstallAll
 			SetTextOptionValueST("$UNINSTALLING")
 			ForcePageReset()	;this ensures uninstall list is displayed again with OPTION_FLAG_DISABLED
 			
-			While (StorageUtil.StringListCount(None, SUKEY_UNINSTALL_MODS) > 0)
-				String ModName = StorageUtil.StringListGet(None, SUKEY_UNINSTALL_MODS, 0)
+			While (StringListCount(None, SUKEY_UNINSTALL_MODS) > 0)
+				String ModName = StringListGet(None, SUKEY_UNINSTALL_MODS, 0)
 				UninstallMod(ModName)
 			EndWhile
 			
@@ -243,14 +275,14 @@ EndState
 Event OnOptionHighlight(Int aiOption)
 		Int i
 		
-		While (i < StorageUtil.IntListCount(None, SUKEY_MENU_OPTIONS))
-			If (aiOption == StorageUtil.IntListGet(None, SUKEY_MENU_OPTIONS, i))
+		While (i < IntListCount(None, SUKEY_MENU_OPTIONS))
+			If (aiOption == IntListGet(None, SUKEY_MENU_OPTIONS, i))
 				If (CurrentPage == Pages[2])
-					SetInfoText(StorageUtil.StringListGet(None, SUKEY_INSTALL_MODS_TOOLTIP, i))
-					i = StorageUtil.IntListCount(None, SUKEY_MENU_OPTIONS)
+					SetInfoText(StringListGet(None, SUKEY_INSTALL_MODS_TOOLTIP, i))
+					i = IntListCount(None, SUKEY_MENU_OPTIONS)
 				ElseIf (CurrentPage == Pages[3])
 					SetInfoText("$EXPLAIN_UNINSTALL")
-					i = StorageUtil.IntListCount(None, SUKEY_MENU_OPTIONS)
+					i = IntListCount(None, SUKEY_MENU_OPTIONS)
 				EndIf
 			Else
 				i += 1
@@ -261,12 +293,12 @@ EndEvent
 Event OnOptionMenuOpen(Int aiOption)
 	Int i
 
-	While(i < StorageUtil.IntListCount(None, SUKEY_MENU_OPTIONS))
-		If(aiOption == StorageUtil.IntListGet(None, SUKEY_MENU_OPTIONS, i))
+	While(i < IntListCount(None, SUKEY_MENU_OPTIONS))
+		If(aiOption == IntListGet(None, SUKEY_MENU_OPTIONS, i))
 			SetMenuDialogDefaultIndex(2)
 			SetMenuDialogStartIndex(2)
 			SetMenuDialogOptions(Ordering)
-			i = StorageUtil.IntListCount(None, SUKEY_MENU_OPTIONS)
+			i = IntListCount(None, SUKEY_MENU_OPTIONS)
 		Else
 			i += 1
 		EndIf
@@ -276,15 +308,15 @@ EndEvent
 Event OnOptionMenuAccept(Int aiOpenedMenu, Int aiSelectedOption)
 	Int i
 	
-	While (i < StorageUtil.IntListCount(None, SUKEY_MENU_OPTIONS))
-		If(aiOpenedMenu == StorageUtil.IntListGet(None, SUKEY_MENU_OPTIONS, i))
+	While (i < IntListCount(None, SUKEY_MENU_OPTIONS))
+		If(aiOpenedMenu == IntListGet(None, SUKEY_MENU_OPTIONS, i))
 			If (aiSelectedOption == MOVE_TOP || aiSelectedOption == MOVE_UP || aiSelectedOption == MOVE_DOWN || aiSelectedOption == MOVE_BOTTOM)
-				ChangeInitOrder(StorageUtil.StringListGet(None, SUKEY_MENU_OPTIONS, i), aiSelectedOption)
-				i = StorageUtil.IntListCount(None, SUKEY_MENU_OPTIONS)
+				ChangeInitOrder(StringListGet(None, SUKEY_MENU_OPTIONS, i), aiSelectedOption)
+				i = IntListCount(None, SUKEY_MENU_OPTIONS)
 			ElseIf (aiSelectedOption == INITIALIZE_MOD)
 				If (ShowMessage("$INITIALIZE_MOD_CONFIRMATION") == true)
-					InitializeMod(StorageUtil.StringListGet(None, SUKEY_MENU_OPTIONS, i))
-					i = StorageUtil.IntListCount(None, SUKEY_MENU_OPTIONS)
+					InitializeMod(StringListGet(None, SUKEY_MENU_OPTIONS, i))
+					i = IntListCount(None, SUKEY_MENU_OPTIONS)
 				EndIf
 			EndIf
 		Else
@@ -298,11 +330,11 @@ EndEvent
 Event OnOptionSelect(Int aiOption)
 	Int i
 	
-	While (i < StorageUtil.IntListCount(None, SUKEY_MENU_OPTIONS))
-		If (aiOption == StorageUtil.IntListGet(None, SUKEY_MENU_OPTIONS, i))
+	While (i < IntListCount(None, SUKEY_MENU_OPTIONS))
+		If (aiOption == IntListGet(None, SUKEY_MENU_OPTIONS, i))
 			If (ShowMessage("$UNINSTALL_MOD_CONFIRMATION") == true)
-				UninstallMod(StorageUtil.StringListGet(None, SUKEY_MENU_OPTIONS, i))
-				i = StorageUtil.IntListCount(None, SUKEY_MENU_OPTIONS)
+				UninstallMod(StringListGet(None, SUKEY_MENU_OPTIONS, i))
+				i = IntListCount(None, SUKEY_MENU_OPTIONS)
 			EndIf
 		Else	
 			i += 1
@@ -311,83 +343,83 @@ Event OnOptionSelect(Int aiOption)
 EndEvent
 
 Function ChangeInitOrder(String asModName, Int aiPositionChange)
-	Int ModIndex = StorageUtil.StringListFind(None, SUKEY_INSTALL_MODS, asModName)
-	Form InitQuest = StorageUtil.FormListGet(None, SUKEY_INSTALL_MODS, ModIndex)
-	Int iSetStage = StorageUtil.IntListGet(None, SUKEY_INSTALL_MODS, ModIndex)
+	Int ModIndex = StringListFind(None, SUKEY_INSTALL_MODS, asModName)
+	Form InitQuest = FormListGet(None, SUKEY_INSTALL_MODS, ModIndex)
+	Int iSetStage = IntListGet(None, SUKEY_INSTALL_MODS, ModIndex)
 
 	;ShowMessage("Index: " + ModIndex + "\nQuest: " + (InitQuest As Quest).GetName(), False)
 
 	If(aiPositionChange == MOVE_TOP)
-		If(ModIndex == (StorageUtil.StringListCount(None, SUKEY_INSTALL_MODS) - 1))
+		If(ModIndex == (StringListCount(None, SUKEY_INSTALL_MODS) - 1))
 			Return
 		EndIf
 
-		StorageUtil.FormListRemove(None, SUKEY_INSTALL_MODS, InitQuest)
-		StorageUtil.FormListAdd(None, SUKEY_INSTALL_MODS, InitQuest)
+		FormListRemove(None, SUKEY_INSTALL_MODS, InitQuest)
+		FormListAdd(None, SUKEY_INSTALL_MODS, InitQuest)
 		
-		StorageUtil.StringListRemove(None, SUKEY_INSTALL_MODS, asModName)
-		StorageUtil.StringListAdd(None, SUKEY_INSTALL_MODS, asModName)
+		StringListRemove(None, SUKEY_INSTALL_MODS, asModName)
+		StringListAdd(None, SUKEY_INSTALL_MODS, asModName)
 		
-		StorageUtil.IntListRemove(None, SUKEY_INSTALL_MODS, iSetStage)
-		StorageUtil.IntListAdd(None, SUKEY_INSTALL_MODS, iSetStage)
+		IntListRemove(None, SUKEY_INSTALL_MODS, iSetStage)
+		IntListAdd(None, SUKEY_INSTALL_MODS, iSetStage)
 	ElseIf(aiPositionChange == MOVE_UP)
-		If(ModIndex == (StorageUtil.StringListCount(None, SUKEY_INSTALL_MODS) - 1))
+		If(ModIndex == (StringListCount(None, SUKEY_INSTALL_MODS) - 1))
 			Return
 		EndIf
 		
-		If(ModIndex == (StorageUtil.StringListCount(None, SUKEY_INSTALL_MODS) - 2)) ;this is equivalent to MOVE_TOP, errors otherwise
+		If(ModIndex == (StringListCount(None, SUKEY_INSTALL_MODS) - 2)) ;this is equivalent to MOVE_TOP, errors otherwise
 		
-			StorageUtil.FormListRemove(None, SUKEY_INSTALL_MODS, InitQuest)
-			StorageUtil.FormListAdd(None, SUKEY_INSTALL_MODS, InitQuest)
+			FormListRemove(None, SUKEY_INSTALL_MODS, InitQuest)
+			FormListAdd(None, SUKEY_INSTALL_MODS, InitQuest)
 			
-			StorageUtil.StringListRemove(None, SUKEY_INSTALL_MODS, asModName)
-			StorageUtil.StringListAdd(None, SUKEY_INSTALL_MODS, asModName)
+			StringListRemove(None, SUKEY_INSTALL_MODS, asModName)
+			StringListAdd(None, SUKEY_INSTALL_MODS, asModName)
 
-			StorageUtil.IntListRemove(None, SUKEY_INSTALL_MODS, iSetStage)
-			StorageUtil.IntListAdd(None, SUKEY_INSTALL_MODS, iSetStage)
+			IntListRemove(None, SUKEY_INSTALL_MODS, iSetStage)
+			IntListAdd(None, SUKEY_INSTALL_MODS, iSetStage)
 		Else
-			StorageUtil.FormListRemove(None, SUKEY_INSTALL_MODS, InitQuest)
-			StorageUtil.FormListInsert(None, SUKEY_INSTALL_MODS, (ModIndex + 1), InitQuest)
+			FormListRemove(None, SUKEY_INSTALL_MODS, InitQuest)
+			FormListInsert(None, SUKEY_INSTALL_MODS, (ModIndex + 1), InitQuest)
 			
-			StorageUtil.StringListRemove(None, SUKEY_INSTALL_MODS, asModName)
-			StorageUtil.StringListInsert(None, SUKEY_INSTALL_MODS, (ModIndex + 1), asModName)
+			StringListRemove(None, SUKEY_INSTALL_MODS, asModName)
+			StringListInsert(None, SUKEY_INSTALL_MODS, (ModIndex + 1), asModName)
 			
-			StorageUtil.IntListRemove(None, SUKEY_INSTALL_MODS, iSetStage)
-			StorageUtil.IntListAdd(None, SUKEY_INSTALL_MODS, (ModIndex +1), iSetStage)
+			IntListRemove(None, SUKEY_INSTALL_MODS, iSetStage)
+			IntListAdd(None, SUKEY_INSTALL_MODS, (ModIndex +1), iSetStage)
 		EndIf
 	ElseIf(aiPositionChange == MOVE_DOWN)
 		If(ModIndex == 0)
 			Return
 		EndIf
 		
-		StorageUtil.FormListRemove(None, SUKEY_INSTALL_MODS, InitQuest)
-		StorageUtil.FormListInsert(None, SUKEY_INSTALL_MODS, (ModIndex - 1), InitQuest)
+		FormListRemove(None, SUKEY_INSTALL_MODS, InitQuest)
+		FormListInsert(None, SUKEY_INSTALL_MODS, (ModIndex - 1), InitQuest)
 		
-		StorageUtil.StringListRemove(None, SUKEY_INSTALL_MODS, asModName)
-		StorageUtil.StringListInsert(None, SUKEY_INSTALL_MODS, (ModIndex - 1), asModName)
+		StringListRemove(None, SUKEY_INSTALL_MODS, asModName)
+		StringListInsert(None, SUKEY_INSTALL_MODS, (ModIndex - 1), asModName)
 		
-		StorageUtil.IntListRemove(None, SUKEY_INSTALL_MODS, iSetStage)
-		StorageUtil.IntListAdd(None, SUKEY_INSTALL_MODS, (ModIndex - 1), iSetStage)
+		IntListRemove(None, SUKEY_INSTALL_MODS, iSetStage)
+		IntListAdd(None, SUKEY_INSTALL_MODS, (ModIndex - 1), iSetStage)
 	ElseIf(aiPositionChange == MOVE_BOTTOM)
 		If(ModIndex == 0)
 			Return
 		EndIf
 		
-		StorageUtil.FormListRemove(None, SUKEY_INSTALL_MODS, InitQuest)
-		StorageUtil.FormListInsert(None, SUKEY_INSTALL_MODS, 0, InitQuest)
+		FormListRemove(None, SUKEY_INSTALL_MODS, InitQuest)
+		FormListInsert(None, SUKEY_INSTALL_MODS, 0, InitQuest)
 		
-		StorageUtil.StringListRemove(None, SUKEY_INSTALL_MODS, asModName)
-		StorageUtil.StringListInsert(None, SUKEY_INSTALL_MODS, 0, asModName)
+		StringListRemove(None, SUKEY_INSTALL_MODS, asModName)
+		StringListInsert(None, SUKEY_INSTALL_MODS, 0, asModName)
 		
-		StorageUtil.IntListRemove(None, SUKEY_INSTALL_MODS, iSetStage)
-		StorageUtil.IntListAdd(None, SUKEY_INSTALL_MODS, 0, iSetStage)
+		IntListRemove(None, SUKEY_INSTALL_MODS, iSetStage)
+		IntListAdd(None, SUKEY_INSTALL_MODS, 0, iSetStage)
 	EndIf
 EndFunction
 
 Function InitializeMod(String asModName, Bool abSafetyLock = true)
-	Int ModIndex = StorageUtil.StringListFind(None, SUKEY_INSTALL_MODS, asModName)
-	Quest InitQuest = StorageUtil.FormListGet(None, SUKEY_INSTALL_MODS, ModIndex) as Quest
-	Int iSetStage = StorageUtil.IntListGet(None, SUKEY_INSTALL_MODS, ModIndex)
+	Int ModIndex = StringListFind(None, SUKEY_INSTALL_MODS, asModName)
+	Quest InitQuest = FormListGet(None, SUKEY_INSTALL_MODS, ModIndex) as Quest
+	Int iSetStage = IntListGet(None, SUKEY_INSTALL_MODS, ModIndex)
 	
 	If (abSafetyLock)
 		InitSafetyLock = true
@@ -395,24 +427,22 @@ Function InitializeMod(String asModName, Bool abSafetyLock = true)
 	
 	If (InitQuest.SetStage(iSetStage) == false)
 		ShowMessage(asModName + "$MOD_FAILED_TO_INITIALIZE", false, "OK")
+		Debug.MessageBox(asModName + "$MOD_FAILED_TO_INITIALIZE")
 	EndIf
 	
 	If (abSafetyLock)
 		InitSafetyLock = false
 	EndIf
 	
-	StorageUtil.StringListRemove(None, SUKEY_INSTALL_MODS, asModName)
-	StorageUtil.FormListRemove(None, SUKEY_INSTALL_MODS, InitQuest)
-	StorageUtil.IntListRemove(None, SUKEY_INSTALL_MODS, iSetStage)
-	
-	StorageUtil.StringListRemove(None, SUKEY_REGISTERED_MODS, asModName)
-	StorageUtil.FormListRemove(None, SUKEY_REGISTERED_MODS, InitQuest)
+	StringListRemove(None, SUKEY_INSTALL_MODS, asModName)
+	FormListRemove(None, SUKEY_INSTALL_MODS, InitQuest)
+	IntListRemove(None, SUKEY_INSTALL_MODS, iSetStage)
 EndFunction
 
 Function UninstallMod(String asModName, Bool abSafetyLock = true)
-	Int ModIndex = StorageUtil.StringListFind(None, SUKEY_UNINSTALL_MODS, asModName)
-	Quest UninstallQuest = StorageUtil.FormListGet(None, SUKEY_UNINSTALL_MODS, ModIndex) as Quest
-	Int iSetStage = StorageUtil.IntListGet(None, SUKEY_UNINSTALL_MODS, ModIndex)
+	Int ModIndex = StringListFind(None, SUKEY_UNINSTALL_MODS, asModName)
+	Quest UninstallQuest = FormListGet(None, SUKEY_UNINSTALL_MODS, ModIndex) as Quest
+	Int iSetStage = IntListGet(None, SUKEY_UNINSTALL_MODS, ModIndex)
 	
 	If (abSafetyLock)
 		UninstSafetyLock = true
@@ -420,18 +450,19 @@ Function UninstallMod(String asModName, Bool abSafetyLock = true)
 	
 	If (UninstallQuest.SetStage(iSetStage) == false)
 		ShowMessage(asModName + "$MOD_FAILED_TO_UNINSTALL", false, "OK")
+		Debug.MessageBox(asModName + "$MOD_FAILED_TO_UNINSTALL")
 	EndIf
 	
 	If (abSafetyLock)
 		UninstSafetyLock = false
 	EndIf
 	
-	StorageUtil.StringListRemove(None, SUKEY_UNINSTALL_MODS, asModName)
-	StorageUtil.FormListRemove(None, SUKEY_UNINSTALL_MODS, UninstallQuest)
-	StorageUtil.IntListRemove(None, SUKEY_UNINSTALL_MODS, iSetStage)
+	StringListRemove(None, SUKEY_UNINSTALL_MODS, asModName)
+	FormListRemove(None, SUKEY_UNINSTALL_MODS, UninstallQuest)
+	IntListRemove(None, SUKEY_UNINSTALL_MODS, iSetStage)
 	
-	StorageUtil.StringListRemove(None, SUKEY_REGISTERED_MODS, asModName)
-	StorageUtil.FormListRemove(None, SUKEY_REGISTERED_MODS, InitQuest)
+	StringListRemove(None, SUKEY_REGISTERED_MODS, asModName)
+	FormListRemove(None, SUKEY_REGISTERED_MODS, UninstallQuest)
 EndFunction
 
 ;/
@@ -453,10 +484,17 @@ Tab: Uninstall Manager
 All tabs
 	- disable everything if any mod is initializing or uninstalling
 	- seperate init safety lockup from uninstall safety lockup and display messages accordingly
+	- display instructions to close MCM menu
 ------------------------------------------------------------------------------------------------------------------------	
 TODO:
-All tabs:	
-	- display instructions to close MCM menu
+All tabs:
+	- Update ModIndex-related functions to use new Core helper functions
+	- Max array size & MCM menu sice: 128
+Tab: Init Manager
+	- Initialization should be started through external quest
+	- Remove mod from registry if failed to init
+Tab: Uninstall Manager
+	- Uninstall should be started through external quest
 Tab: Exception Manager
 	- Enable/disable global file logging
 	- ShowMessage if file logging is enabled, that it will now be disabled for this game session
