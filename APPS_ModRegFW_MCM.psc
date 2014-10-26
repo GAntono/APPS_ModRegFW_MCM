@@ -16,9 +16,10 @@ Int Property MOVE_BOTTOM = 3 AutoReadOnly Hidden
 Int Property INITIALIZE_MOD = 5 AutoReadOnly Hidden
 Int InitControlFlags 
 Int UninstallControlFlags 
-Float TimeToNextInit = 1.0 
+Float Property TimeToNextInit = 1.0 Auto Hidden
 Bool InitSafetyLock = False 
 Bool UninstSafetyLock = False 
+Quest Property APPS_Framework_Init Auto
 
 
 
@@ -26,7 +27,7 @@ Event OnConfigInit()
 	Pages = new String[4]
 	Pages[0] = "$REGISTRY"
 	Pages[1] = "$LOGGING"
-	Pages[2] = "$INITILIZATION_MANAGER"
+	Pages[2] = "$INITIALIZATION_MANAGER"
 	Pages[3] = "$UNINSTALL_MANAGER"
 	
 	Ordering = New String[7]
@@ -79,7 +80,7 @@ Event OnPageReset(String asPage)
 		AddHeaderOption("$ERROR_REDIRECT")
 		AddMenuOptionST("LogRedirectMenu", "$LOG_REDIRECT_MENU", "Nothing")
 		/;
-	ElseIf (asPage == Pages[2])	;install manager
+	ElseIf (asPage == Pages[2])	;initialization manager
 		If (InitSafetyLock || UninstSafetyLock || StringListCount(None, SUKEY_INSTALL_MODS) == 0) 
 			InitControlFlags = OPTION_FLAG_DISABLED
 		Else
@@ -165,14 +166,14 @@ State LoggingModMenu
 			EndWhile
 			
 		SetMenuDialogOptions(LoggingModMenuOptions)
-		SetMenuDialogStartIndex
-		SetMenuDialogDefaultIndex
+		;SetMenuDialogStartIndex
+		;SetMenuDialogDefaultIndex
 	EndEvent
 	
 	Event OnMenuAcceptST(int aiSelectedOption)
 		;LoggingModMenuOptions = PapyrusUtil.StringArray(RegisteredMods - 1)
 		SetMenuOptionValueST(LoggingModMenuOptions[aiSelectedOption])
-		
+	EndEvent
 EndState
 
 ;/
@@ -227,14 +228,16 @@ State StartInitialization
 	
 	Event OnSelectST()
 		If (ShowMessage("$START_INITIALIZATION_CONFIRMATION") == true)
+			;TODO show a "close menu" message
 			InitSafetyLock = true
 			SetTextOptionValueST("$INITIALIZING")
-			ForcePageReset()	;this ensures install order is displayed again with OPTION_FLAG_DISABLED
+			ForcePageReset()	;this ensures install order is displayed again with OPTION_FLAG_DISABLED			
+			Utility.Wait(0.1)
 			
 			While (StringListCount(None, SUKEY_INSTALL_MODS) > 0)
 				String ModName = StringListGet(None, SUKEY_INSTALL_MODS, 0)
 				InitializeMod(ModName, abSafetyLock = false) ;SafetyLock is handled by line InitSafetyLock = true
-				Utility.WaitMenuMode(TimeToNextInit)
+				Utility.Wait(TimeToNextInit)
 			EndWhile
 			
 			ShowMessage("$INITIALIZATION_SEQUENCE_COMPLETE")
@@ -428,6 +431,9 @@ Function InitializeMod(String asModName, Bool abSafetyLock = true)
 	If (InitQuest.SetStage(iSetStage) == false)
 		ShowMessage(asModName + "$MOD_FAILED_TO_INITIALIZE", false, "OK")
 		Debug.MessageBox(asModName + "$MOD_FAILED_TO_INITIALIZE")
+		
+		StringListRemove(None, SUKEY_REGISTERED_MODS, asModName)
+		FormListRemoveAt(None, SUKEY_REGISTERED_MODS, ModIndex)
 	EndIf
 	
 	If (abSafetyLock)
@@ -462,7 +468,7 @@ Function UninstallMod(String asModName, Bool abSafetyLock = true)
 	IntListRemove(None, SUKEY_UNINSTALL_MODS, iSetStage)
 	
 	StringListRemove(None, SUKEY_REGISTERED_MODS, asModName)
-	FormListRemove(None, SUKEY_REGISTERED_MODS, UninstallQuest)
+	FormListRemoveAt(None, SUKEY_REGISTERED_MODS, ModIndex)
 EndFunction
 
 ;/
